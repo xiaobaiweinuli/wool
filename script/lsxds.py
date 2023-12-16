@@ -51,14 +51,10 @@ class Lsxds:
                     request_headers.update(add_headers)
                 async with getattr(self.sessions, method)(url, headers=request_headers, data=data) as response:
                     if response.status == 200:
-                        if dtype == 'json':
-                            return await response.json()
-                        else:
-                            return await response.text()
-                    else:
-                        print(f"请求失败状态码：{response.status}")
-                        # 可以选择休眠一段时间再重试，以避免频繁请求
-                        await asyncio.sleep(random.randint(3,5))  # 休眠1秒钟
+                        return await response.json() if dtype == 'json' else await response.text()
+                    print(f"请求失败状态码：{response.status}")
+                    # 可以选择休眠一段时间再重试，以避免频繁请求
+                    await asyncio.sleep(random.randint(3,5))  # 休眠1秒钟
             except Exception as e:
                 print(f"请求出现错误：{e}")
                 await asyncio.sleep(random.randint(3,5))  # 休眠1秒钟
@@ -159,12 +155,7 @@ async def check_env():
     if cks is None:
         print("你没有填写lsxdscks='authorization#memberId'")
         exit()
-    correct_data = []
-    for index ,ck in enumerate(cks.split("@")):
-        # 也许这里可以添加你的变量检测是否合规
-        # Here you can write some code.
-        correct_data.append(ck)
-    return correct_data
+    return list(cks.split("@"))
 
 async def main():
     cks_list = await check_env()

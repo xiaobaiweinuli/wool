@@ -79,11 +79,9 @@ class Gbyd:
             if add_headers:
                 request_headers.update(add_headers)
             async with getattr(self.sessions, method)(url,headers = request_headers, data=data) as response:
-                    if response.status == 200:
-                        return await response.json()     #返回text或json 看情况如json就response.json()
-                    else:
-                        print(f"请求失败状态码:{response.status}")
-                        return await response.json()    # 同理由可得
+                if response.status != 200:
+                    print(f"请求失败状态码:{response.status}")
+                return await response.json()     #返回text或json 看情况如json就response.json()
         except Exception as e:
             print(e)
             return None
@@ -92,8 +90,7 @@ class Gbyd:
         key=f'key=4fck9x4dqa6linkman3ho9b1quarto49x0yp706qi5185o&time={ts}'
         hash = hashlib.sha256()
         hash.update(key.encode())
-        sign = hash.hexdigest()
-        return sign
+        return hash.hexdigest()
     
     async def valid_auth(self):
         ts = int(time.time())
@@ -101,11 +98,11 @@ class Gbyd:
         zzid = match.group(1)
         str1 = f'{ts}&zzid={zzid}'
         sign = await self.create_sign(str1)
-        url = self.url +f'auth/valid?time={ts}&zzid={zzid}&sign={sign}'
+        url = f'{self.url}auth/valid?time={ts}&zzid={zzid}&sign={sign}'
         res = await self.request(url)
         if not res:
             print("valid 的方法错误,联系开发者吧")
-            return 
+            return
         if res['code'] == 0:
             print(f"[用户{self.index}][登录]:模拟登录{res['message']}")
             await asyncio.sleep(3)
@@ -115,9 +112,9 @@ class Gbyd:
     async def user_info(self):
         ts = int(time.time())
         sign = await self.create_sign(ts)
-        url = self.url + f"user/info?time={ts}&sign={sign}"
+        url = f"{self.url}user/info?time={ts}&sign={sign}"
         res = await self.request(url)
-        url1 = self.url+ f"user/msg?time={ts}&sign={sign}"
+        url1 = f"{self.url}user/msg?time={ts}&sign={sign}"
         res1 = await self.request(url1)
         if res:
             if res['code'] == 0:
@@ -135,7 +132,7 @@ class Gbyd:
     async def read_info(self):
         ts = int(time.time())
         sign = await self.create_sign(ts)
-        url = self.url+f"read/info?time={ts}&sign={sign}"
+        url = f"{self.url}read/info?time={ts}&sign={sign}"
         res = await self.request(url)
         if res:
             if res['code'] == 0:
@@ -150,7 +147,7 @@ class Gbyd:
             print(f"[用户{self.index}][阅读]:开始第{i}次阅读")
             ts = int(time.time())
             sign = await self.create_sign(ts)
-            url = self.url + f"read/task?time={ts}&sign={sign}"
+            url = f"{self.url}read/task?time={ts}&sign={sign}"
             res = await self.request(url)
             if res['code'] == 0:
                 link = res['data']['link']
@@ -161,17 +158,16 @@ class Gbyd:
                         break
                 else:
                     res = link
-                if await self.varification(res):
-                    random_sleep = random.randint(7,13)
-                    print(f"[用户{self.index}][等待]:{random_sleep}秒")
-                    await asyncio.sleep(random_sleep)
-                    ts1 = int(time.time())
-                    url1 = self.url+ f"user/msg?time={ts1}&sign={sign}"
-                    await self.request(url1)
-                    result = await self.complete_task()
-                    if result is False:
-                        break
-                else:
+                if not await self.varification(res):
+                    break
+                random_sleep = random.randint(7,13)
+                print(f"[用户{self.index}][等待]:{random_sleep}秒")
+                await asyncio.sleep(random_sleep)
+                ts1 = int(time.time())
+                url1 = f"{self.url}user/msg?time={ts1}&sign={sign}"
+                await self.request(url1)
+                result = await self.complete_task()
+                if result is False:
                     break
                 await asyncio.sleep(random.randint(1,3))
             else:
@@ -190,16 +186,12 @@ class Gbyd:
         }
         async with aiohttp.ClientSession() as client:
             async with client.get(url, headers= default_headers, allow_redirects=False) as res:
-                if res.status == 302:
-                    # print(res.headers['Location'])
-                    return res.headers['Location']
-                else:
-                    return None
+                return res.headers['Location'] if res.status == 302 else None
 
     async def complete_task(self):
         ts = int(time.time())
         sign = await self.create_sign(ts)
-        url = self.url + 'read/finish'
+        url = f'{self.url}read/finish'
         data = f'time={ts}&sign={sign}'
         add_header = {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8','Origin': f'http://{urlparse(url).netloc}','Content-Length': str(len(data))}
         res = await self.request(url,'post', data=data, add_headers=add_header)
@@ -250,14 +242,11 @@ class Gbyd:
         if balance >= 6000:
             ts = int(time.time())
             sign = await self.create_sign(ts)
-            url = self.url + f"withdraw/wechat?time={ts}&sign={sign}"
+            url = f"{self.url}withdraw/wechat?time={ts}&sign={sign}"
             res = await self.request(url)
             if not res:
                 print(f"[用户{self.index}][提现]:提现出错了")
-            if res['code'] == 0:
-                print(f"[用户{self.index}][提现]:{res['message']}")
-            else:
-                print(f"[用户{self.index}][提现]:{res['message']}")  
+            print(f"[用户{self.index}][提现]:{res['message']}")
         else:
             print(f"[用户{self.index}][提现]: 未达到提现金额，暂不提现")
 
@@ -346,21 +335,19 @@ class Gbyd:
             print(f"[用户{self.index}][通知]:发送失败！！！！！") 
 
     async def get_read_state(self,max_retry=3):
-        url = self.aol + f'/read/state?user={quote(self.cookie)}&value=1'
+        url = f'{self.aol}/read/state?user={quote(self.cookie)}&value=1'
         try:
             async with aiohttp.ClientSession() as client:
                 async with client.get(url) as res:
-                    if res.status ==200:
-                        res1 = await res.json()
-                        if res1['status'] == True:
-                            return True
-                        else:
-                            if res1['status'] == '-1' and max_retry>0:
-                                await asyncio.sleep(5)
-                                await self.get_read_state(max_retry-1)
-                            return False
-                    else:
+                    if res.status != 200:
                         return False
+                    res1 = await res.json()
+                    if res1['status'] == True:
+                        return True
+                    if res1['status'] == '-1' and max_retry>0:
+                        await asyncio.sleep(5)
+                        await self.get_read_state(max_retry-1)
+                    return False
         except Exception as e:
             print(f"捕获到请求状态异常:{e}")
             if max_retry == 0:
@@ -370,7 +357,7 @@ class Gbyd:
         
     async def init_check_dict(self, maxretry=3):
         print(f"[用户{self.index}][init]:开始初始化阅读后台检测状态")
-        url = self.aol + f'/check_dict?user={quote(self.cookie)}&value=1'
+        url = f'{self.aol}/check_dict?user={quote(self.cookie)}&value=1'
         async with aiohttp.ClientSession() as client:
             async with client.get(url) as res:
                 if res.status ==200:
@@ -382,12 +369,11 @@ class Gbyd:
                     if res1['status'] == 207:
                         print(f"[用户{self.index}][init]:{res1['warning']}")
                         return False
+                elif maxretry >0:
+                    print(f"[用户{self.index}][init]:初始化阅读后台检测状态失败")
+                    await self.init_check_dict(maxretry-1)
                 else:
-                    if maxretry >0:
-                        print(f"[用户{self.index}][init]:初始化阅读后台检测状态失败")
-                        await self.init_check_dict(maxretry-1)
-                    else:
-                        exit()
+                    exit()
 
 
     async def process_account(self,ck,sleep_time=None):
@@ -407,16 +393,15 @@ class Gbyd:
 
 async def test_api(url):
     print("开始测试检测服务可用性")
-    api_url = url + '/read/announcement'
+    api_url = f'{url}/read/announcement'
     try:
         async with aiohttp.ClientSession() as client:
             async with client.get(api_url) as res:
-                if res.status ==200:
-                    result = await res.json()
-                    print(f"[公告]:{result['messages']}")
-                    return True
-                else:
+                if res.status != 200:
                     return False
+                result = await res.json()
+                print(f"[公告]:{result['messages']}")
+                return True
     except Exception as e:
         print(f"出错了,稍后再来:{e}")
 
@@ -445,7 +430,7 @@ async def check_env():
         else:
             print(f"[账号{index+1}][错误]:填写格式不对正确的格式是在配置文件填写export gbydcks='gfsessionid=o-0fIxxxx....' 或者环境变量新建 变量名:gbydcks 值:gfsessionid=o-0fIxxxx....   多账号用@分割")
     if len(correct_data) > len(wxpuser_list):
-        print(f"[警告][格式]:wxpuser_uid的数量与填写cookie的数量不一致,将默认第一个wxpuser_uid填补完整")
+        print("[警告][格式]:wxpuser_uid的数量与填写cookie的数量不一致,将默认第一个wxpuser_uid填补完整")
         fill_count = len(ck_list) - len(wxpuser_list)
         wxpuser_list.extend([wxpuser_list[0]] * fill_count)
     return correct_data , wxpuser_list, topicid, wxpuser_token
@@ -453,9 +438,9 @@ async def check_env():
 async def main():
     api_url = 'http://110.41.145.200:8088'
     if await test_api(api_url):
-        print(f"[测试]:成功,服务当前可用")
+        print("[测试]:成功,服务当前可用")
     else:
-        print(f"[测试]:失败,服务当前不可用,可能服务器断电、断网了,稍后再来吧")
+        print("[测试]:失败,服务当前不可用,可能服务器断电、断网了,稍后再来吧")
         exit()
     cks_list, wx_uids,topicid,wxpuser_token = await check_env()
     mapping = dict(zip(cks_list, wx_uids))

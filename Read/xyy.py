@@ -77,14 +77,10 @@ class template:
                 request_headers.update(add_headers)
             async with getattr(self.sessions, method)(url, headers=request_headers, data=data) as response:
                 if response.status == 200:
-                    if dtype == 'json':
-                        return await response.json()
-                    else:
-                        return await response.text()
-                else:
-                    print(f"[用户{self.index}]:请求失败状态码：{response.status}")
-                    # 可以选择休眠一段时间再重试，以避免频繁请求
-                    await asyncio.sleep(random.randint(3,5))  # 休眠1秒钟
+                    return await response.json() if dtype == 'json' else await response.text()
+                print(f"[用户{self.index}]:请求失败状态码：{response.status}")
+                # 可以选择休眠一段时间再重试，以避免频繁请求
+                await asyncio.sleep(random.randint(3,5))  # 休眠1秒钟
         except Exception as e:
             print(f"[用户{self.index}]:请求出现错误：{e}")
             await asyncio.sleep(random.randint(3,5))  # 休眠1秒钟
@@ -178,7 +174,7 @@ class template:
     
     async def init_chekc_dict(self):
         print(f"[用户{self.index}][init]: 初始化阅读后台检测状态")
-        url = self.aol + f'/check_dict?user={self.cookie}&value=0'
+        url = f'{self.aol}/check_dict?user={self.cookie}&value=0'
         res = await self.request(url)
         if not res:
             print(f"[用户{self.index}][错误]: 索取字典出现错误{res}一定是服务器的问题,休息5秒")
@@ -193,21 +189,19 @@ class template:
             return False
     
     async def get_read_state(self, max_retry=3):
-        url = self.aol + f'/read/state?user={self.cookie}&value=0'
+        url = f'{self.aol}/read/state?user={self.cookie}&value=0'
         try:
             async with aiohttp.ClientSession() as client:
                 async with client.get(url) as res:
-                    if res.status ==200:
-                        res1 = await res.json()
-                        if res1['status'] == True:
-                            return True
-                        else:
-                            if res1['status'] == '-1' and max_retry>0:
-                                await asyncio.sleep(5)
-                                await self.get_read_state(max_retry-1)
-                            return False
-                    else:
+                    if res.status != 200:
                         return False
+                    res1 = await res.json()
+                    if res1['status'] == True:
+                        return True
+                    if res1['status'] == '-1' and max_retry>0:
+                        await asyncio.sleep(5)
+                        await self.get_read_state(max_retry-1)
+                    return False
         except Exception as e:
             print(f"捕获到请求状态异常:{e}")
             if max_retry == 0:
@@ -233,32 +227,27 @@ class template:
             async with session.get(url, headers=headers, allow_redirects=False) as response:
                 res = await response.text()
                 pattern = r'href="([^"]+)"'
-                match = re.search(pattern, res)
-                if match:
+                if match := re.search(pattern, res):
                     link = match.group(1)
                     # print(link)
                     host = urlparse(link).netloc
-                    self.url = 'http://'+host
-                    # print(self.url)
+                    self.url = f'http://{host}'
                 else:
                     print(f"[用户{self.index}]:未找到主链接")
 
     async def init_read(self):
         ''
-        url = self.url +'/?cate=0'
+        url = f'{self.url}/?cate=0'
         res = await self.request(url, dtype='text')
         if res is None:
             print(f"[用户{self.index}][init]: 初始化请求获取失败")
             return
         # print(res)
         pattern = r'href="([^"]+)"[^>]*>提现</a>'
-        matches = re.findall(pattern, res)
-        if matches:
+        if matches := re.findall(pattern, res):
             self.exchange_url = matches[0]
-            # print(f"提现 {self.exchange_url} ")
         pattern =  r'// var unionid="([^"]+)"'
-        match = re.search(pattern, res)    
-        if match:
+        if match := re.search(pattern, res):
             self.unionid = match.group(1)
         else:
             print("No unionid found")
@@ -267,12 +256,12 @@ class template:
     async def account(self):
         add_header = {'Accept':'application/json, text/javascript, */*; q=0.01'}
         ts = int(time.time()*1000)
-        url = self.url + f'/yunonline/v1/gold?time={ts}&unionid={self.unionid}'
+        url = f'{self.url}/yunonline/v1/gold?time={ts}&unionid={self.unionid}'
         # print(url)
         res = await self.request(url, add_headers=add_header, dtype='text')
         if res is None:
             print(f"[用户{self.index}][错误]: 获取剩余文章出错了")
-            return 
+            return
         res = json.loads(res)
         if res['errcode'] == 0:
             print(f"[用户{self.index}][信息]: 金币 {res['data']['day_gold']}, 剩余文章{res['data']['remain_read']}")
@@ -300,7 +289,7 @@ class template:
             print(f"[用户{self.index}]: 出错了:{res}")
     
     async def start(self):
-        url = self.url+'/yunonline/v1/wtmpdomain'
+        url = f'{self.url}/yunonline/v1/wtmpdomain'
         data = f'unionid={self.unionid}'
         add_headers = {"Content-Lenght": str(len(data)),"Content-Type":"application/x-www-form-urlencoded; charset=UTF-8","Origin":"http://1695469567.snak.top","Referer":"http://1695469567.snak.top/"}
         res = await self.request(url, 'post', data=data, add_headers=add_headers, dtype='text')
@@ -336,7 +325,7 @@ class template:
             
     
     async def jump(self,url, uk,origin):
-        url = url+'?/'
+        url = f'{url}?/'
         host = urlparse(url).netloc
         headers = {
             "Host":host,
@@ -430,7 +419,7 @@ class template:
     async def user_gold(self):
         add_header = {'Accept':'application/json, text/javascript, */*; q=0.01','cookie':self.cookie,'Referer':'http://1695469567.snak.top/?cate=0'}
         ts = int(time.time()*1000)
-        url = self.url + f'/yunonline/v1/gold?unionid={self.unionid}&time={ts}'
+        url = f'{self.url}/yunonline/v1/gold?unionid={self.unionid}&time={ts}'
         res = await self.request(url, add_headers=add_header,dtype='text')
         if res is None:
             print(f"[用户{self.index}]: 没有获取到提现所需要的内容{res}")
@@ -441,7 +430,7 @@ class template:
             print(f"[用户{self.index}][余额]: {current_gold}金币")
             tag = 6000
             if int(current_gold) >= tag:
-                gold = int(int(current_gold)/1000)*1000
+                gold = int(current_gold) // 1000 * 1000
                 unionid,request_id = await self.exchange()
                 if unionid and request_id:
                     # print(unionid,request_id)
@@ -465,14 +454,8 @@ class template:
         match_unionid = re.search(pattern_unionid, res, re.DOTALL)
         match_request_id = re.search(pattern_request_id, res, re.DOTALL)
         # print(match_request_id,match_unionid)
-        if match_unionid:
-            unionid_value = match_unionid.group(1)
-        else:
-            unionid_value = None
-        if match_request_id:
-            request_id_value = match_request_id.group(1)
-        else:
-            request_id_value = None
+        unionid_value = match_unionid.group(1) if match_unionid else None
+        request_id_value = match_request_id.group(1) if match_request_id else None
         if unionid_value and request_id_value:
             return unionid_value,request_id_value
         else:
@@ -491,7 +474,7 @@ class template:
         res = json.loads(res)
         if res['errcode'] == 0:
             print(f"[用户{self.index}][提现]: {res['data']['money']}元")
-            url2 = self.url+'/yunonline/v1/withdraw'
+            url2 = f'{self.url}/yunonline/v1/withdraw'
             data2 = f"unionid={unionid}&signid={request_id}&ua=2&ptype=0&paccount=&pname="
             {"Content-Lenght": str(len(data2)),"Content-Type":"application/x-www-form-urlencoded; charset=UTF-8","Origin":f"http://{host}","Referer":self.exchange_url}
             res1 = await self.request(url2,'post', data=data2,add_headers=add_headers,dtype='text')
@@ -523,16 +506,15 @@ class template:
 
 async def test_api(url):
     print("开始测试检测服务可用性")
-    api_url = url + '/read/announcement'
+    api_url = f'{url}/read/announcement'
     try:
         async with aiohttp.ClientSession() as client:
             async with client.get(api_url) as res:
-                if res.status ==200:
-                    result = await res.json()
-                    print(f"[公告]:{result['messages']}")
-                    return True
-                else:
+                if res.status != 200:
                     return False
+                result = await res.json()
+                print(f"[公告]:{result['messages']}")
+                return True
     except Exception as e:
         print(f"出错了,稍后再来:{e}")
     
