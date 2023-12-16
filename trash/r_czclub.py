@@ -43,15 +43,11 @@ class template:
                 request_headers.update(add_headers)
             async with getattr(self.sessions, method)(url, headers=request_headers, data=data) as response:
                 if response.status == 200:
-                    if dtype == 'json':
-                        return await response.json()
-                    else:
-                        return await response.text()
-                else:
-                    print(f"请求失败状态码：{response.status}")
-                    # 可以选择休眠一段时间再重试，以避免频繁请求
-                    # await asyncio.sleep(random.randint(3,5))  # 休眠1秒钟
-                    return await response.json()
+                    return await response.json() if dtype == 'json' else await response.text()
+                print(f"请求失败状态码：{response.status}")
+                # 可以选择休眠一段时间再重试，以避免频繁请求
+                # await asyncio.sleep(random.randint(3,5))  # 休眠1秒钟
+                return await response.json()
         except Exception as e:
             print(f"请求出现错误：{e}")
         return None    
@@ -67,7 +63,7 @@ class template:
     
     async def check_in(self):   
         # 获取当前日期的时间戳
-        today_timestamp = int(time.mktime(datetime.today().date().timetuple()))
+        today_timestamp = int(time.mktime(datetime.now().date().timetuple()))
         url = 'https://ucode-openapi.aax6.cn/user/checkIn?promotionId=1001681&days=1'
         res = await self.request(url)
         if not res:

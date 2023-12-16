@@ -43,14 +43,13 @@ class template:
         
     def test_api(self,url):
         print("开始测试检测服务可用性")
-        api_url = url + '/read/announcement'
+        api_url = f'{url}/read/announcement'
         res = requests.get(api_url)
-        if res.status_code == 200:
-            result = res.json()
-            print(f"【公告】：{result['messages']}")
-            return True
-        else:
+        if res.status_code != 200:
             return False
+        result = res.json()
+        print(f"【公告】：{result['messages']}")
+        return True
 
     async def close(self):
         await self.sessions.close()
@@ -72,11 +71,9 @@ class template:
             if add_headers:
                 request_headers.update(add_headers)
             async with getattr(self.sessions, method)(url,headers = request_headers, data=data) as response:
-                    if response.status == 200:
-                        return await response.json()     #返回text或json 看情况如json就response.json()
-                    else:
-                        print(f"请求失败状态码：{response.status}")
-                        return await response.json()    # 同理由可得
+                if response.status != 200:
+                    print(f"请求失败状态码：{response.status}")
+                return await response.json()     #返回text或json 看情况如json就response.json()
         except Exception as e:
             print(e)
             return None
@@ -85,15 +82,14 @@ class template:
         key=f'key=4fck9x4dqa6linkman3ho9b1quarto49x0yp706qi5185o&time={ts}'
         hash = hashlib.sha256()
         hash.update(key.encode())
-        sign = hash.hexdigest()
-        return sign
+        return hash.hexdigest()
 
     async def user_info(self):
         ts = int(time.time())
         sign = await self.create_sign(ts)
-        url = self.url + f"user/info?time={ts}&sign={sign}"
+        url = f"{self.url}user/info?time={ts}&sign={sign}"
         res = await self.request(url)
-        url1 = self.url+ f"user/msg?time={ts}&sign={sign}"
+        url1 = f"{self.url}user/msg?time={ts}&sign={sign}"
         res1 = await self.request(url1)
         if res:
             if res['code'] == 0:
@@ -109,7 +105,7 @@ class template:
     async def read_info(self):
         ts = int(time.time())
         sign = await self.create_sign(ts)
-        url = self.url+f"read/info?time={ts}&sign={sign}"
+        url = f"{self.url}read/info?time={ts}&sign={sign}"
         res = await self.request(url)
         if res:
             if res['code'] == 0:
@@ -124,7 +120,7 @@ class template:
             print(f"【阅读】:开始第{i}次阅读")
             ts = int(time.time())
             sign = await self.create_sign(ts)
-            url = self.url + f"read/task?time={ts}&sign={sign}"
+            url = f"{self.url}read/task?time={ts}&sign={sign}"
             res = await self.request(url)
             if res['code'] == 0:
                 link = res['data']['link']
@@ -133,7 +129,7 @@ class template:
                     print(f"【等待】：{random_sleep}秒")
                     await asyncio.sleep(random_sleep)
                     ts1 = int(time.time())
-                    url1 = self.url+ f"user/msg?time={ts1}&sign={sign}"
+                    url1 = f"{self.url}user/msg?time={ts1}&sign={sign}"
                     await self.request(url1)
                     result = await self.complete_task()
                     if result is False:
@@ -148,7 +144,7 @@ class template:
     async def complete_task(self):
         ts = int(time.time())
         sign = await self.create_sign(ts)
-        url = self.url + 'read/finish'
+        url = f'{self.url}read/finish'
         data = f'time={ts}&sign={sign}'
         add_header = {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8','Origin': f'http://{urlparse(url).netloc}','Content-Length': str(len(data))}
         res = await self.request(url,'post',data=data,add_headers=add_header)
@@ -183,7 +179,7 @@ class template:
                         return False
                     time.sleep(1)
             else:
-                print(f"【文章】：没有检测")
+                print("【文章】：没有检测")
                 return True
         else:
             print("__biz parameter not found in the URL")
@@ -192,7 +188,7 @@ class template:
         if balance >= 6000:
             ts = int(time.time())
             sign = await self.create_sign(ts)
-            url = self.url + f"withdraw/wechat?time={ts}&sign={sign}"
+            url = f"{self.url}withdraw/wechat?time={ts}&sign={sign}"
             res = await self.request(url)
             if res:
                 if res['code'] == 0:
@@ -286,27 +282,25 @@ class template:
         wxpuser_url = 'http://wxpusher.zjiecode.com/api/send/message'
         res = await self.request(wxpuser_url,'post',data=json_data, headers={"Content-Type":"application/json"})
         if res['success'] == True:
-            print(f"【通知】：检测发送成功！")
+            print("【通知】：检测发送成功！")
         else:
-            print(f"【通知】：发送失败！！！！！") 
+            print("【通知】：发送失败！！！！！") 
 
     async def get_read_state(self,max_retry=3):
-        url = self.aol + f'/read/state?user={self.cookie}&value=1'
+        url = f'{self.aol}/read/state?user={self.cookie}&value=1'
         res = requests.get(url)
-        if res.status_code == 200:
-            res = res.json()
-            if res['status'] == True:
-                return True
-            else:
-                if res['status'] == '-1' and max_retry>0:
-                    time.sleep(5)
-                    self.get_read_state(max_retry-1)
-                return False
-        else:
+        if res.status_code != 200:
             return False
+        res = res.json()
+        if res['status'] == True:
+            return True
+        if res['status'] == '-1' and max_retry>0:
+            time.sleep(5)
+            self.get_read_state(max_retry-1)
+        return False
         
     async def init_check_dict(self):
-        url = self.aol + f'/check_dict?user={self.cookie}&value=1'
+        url = f'{self.aol}/check_dict?user={self.cookie}&value=1'
         res = await self.request(url)
         if res and res['status'] == 200:
             self.check_data = res['check_dict']

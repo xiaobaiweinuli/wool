@@ -23,11 +23,9 @@ class model:
             if headers:
                 self.headers.update(headers)
             response = self.session.request(method, url, headers=self.headers, data=data)
-            if response.status_code == 200:
-                return response.json()  # 返回json数据
-            else:
+            if response.status_code != 200:
                 print(f"请求失败状态码：{response.status_code}")
-                return response.json()  # 同理由可得
+            return response.json()  # 返回json数据
         except Exception as e:
             print(e)
             return None
@@ -48,7 +46,6 @@ class model:
             print(self.headers)
             self.headers['cookie'] = "abc"
             print(self.headers)
-            pass
         self.close()
 
 def main():

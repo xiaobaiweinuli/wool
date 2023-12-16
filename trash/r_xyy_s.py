@@ -40,14 +40,13 @@ class model:
     
     def test_api(self,url):
         print("开始测试检测服务可用性")
-        api_url = url + '/read/announcement'
+        api_url = f'{url}/read/announcement'
         res = requests.get(api_url)
-        if res.status_code == 200:
-            result = res.json()
-            print(f"【公告】:{result['messages']}")
-            return True
-        else:
+        if res.status_code != 200:
             return False
+        result = res.json()
+        print(f"【公告】:{result['messages']}")
+        return True
         
         
     def request(self, url, method='get', data=None, add_headers: Optional[Dict[str, str]] = None, headers=None,dtype='json'):
@@ -68,14 +67,9 @@ class model:
             # print(request_headers)
             with requests.request(method, url, headers=request_headers, data=data) as response:
                 if response.status_code == 200:
-                    if dtype == 'json':
-                        return response.json()  # 返回JSON数据
-                        
-                    else:
-                        return response.text
-                else:
-                    print(f"请求失败状态码:{response.status_code}")
-                    return None
+                    return response.json() if dtype == 'json' else response.text
+                print(f"请求失败状态码:{response.status_code}")
+                return None
         except Exception as e:
             print(e)
             return None
@@ -90,8 +84,7 @@ class model:
         pattern = r'href="(http://[^"]+)"'
         match = re.search(pattern, res)
         pattern = r'href="([^"]+)"[^>]*>提现</a>'
-        matches = re.findall(pattern, res)
-        if matches:
+        if matches := re.findall(pattern, res):
             self.exchange_url = matches[0]
         if match:
             ex_url = match.group(1)
@@ -106,7 +99,7 @@ class model:
     def account(self):
         add_header = {'Accept':'application/json, text/javascript, */*; q=0.01','cookie':self.cookie}
         ts = int(time.time()*1000)
-        url = self.url + f'v1/gold?time={ts}&unionid={self.unionid}'
+        url = f'{self.url}v1/gold?time={ts}&unionid={self.unionid}'
         # print(url)
         res = self.request(url,add_headers=add_header)
         if res and res['errcode'] == 0:
@@ -129,27 +122,25 @@ class model:
                 else:
                     print("没有发现uk")
             else:
-                print(f"没有可阅读的文章了")
+                print("没有可阅读的文章了")
         else:
             print(f"出错了:{res}")
     
     def start(self):
-        url = self.url+'v1/wtmpdomain'
+        url = f'{self.url}v1/wtmpdomain'
         data = f'unionid={self.unionid}'
         add_headers = {"Content-Lenght": str(len(data)),"Content-Type":"application/x-www-form-urlencoded; charset=UTF-8","Origin":"http://1695469567.snak.top","Referer":"http://1695469567.snak.top/"}
         res = self.request(url,'post',data=data, add_headers=add_headers)
-        if res['errcode'] == 0:
-            print("【文章】: url加载成功")
-            return res['data']['domain']
-        else:
+        if res['errcode'] != 0:
             return None
+        print("【文章】: url加载成功")
+        return res['data']['domain']
 
     
     def do_read_task(self,origin,uk):
         url = f'https://nsr.zsf2023e458.cloud/yunonline/v1/do_read?uk={uk}'
         add_header= {'origin': f'https://{origin}','accept':'application/json, text/javascript, */*; q=0.01','sec-fetch-site':'cross-site'}
-        res = self.request(url,add_headers=add_header)
-        if res:
+        if res := self.request(url, add_headers=add_header):
             if res['errcode'] == 0:
                 link_url = res['data']['link']
                 time.sleep(random.randint(2,4))
@@ -165,7 +156,7 @@ class model:
 
 
     def jump(self,url, uk,origin):
-        url = url+'?/'
+        url = f'{url}?/'
         host = urlparse(url).netloc
         headers = {
             "Host":host,
@@ -224,14 +215,14 @@ class model:
                         return False
                     time.sleep(1)
             else:
-                print(f"【文章】:没有检测")
+                print("【文章】:没有检测")
                 return True
         else:
             print("【文章】:__biz parameter not found in the URL")
             return True
 
     def check_read(self):
-        url = self.aol + f'/check_dict?user={self.cookie}&value=0'
+        url = f'{self.aol}/check_dict?user={self.cookie}&value=0'
         res = self.request(url)
         if res and res['status'] == 200:
             self.check_data = res['check_dict']
@@ -239,19 +230,17 @@ class model:
             print(f"索取字典出现错误:{res}")
     
     def get_read_state(self, max_retry=3):
-        url = self.aol + f'/read/state?user={self.cookie}&value=1'
+        url = f'{self.aol}/read/state?user={self.cookie}&value=1'
         res = requests.get(url)
-        if res.status_code == 200:
-            res = res.json()
-            if res['status'] == True:
-                return True
-            else:
-                if res['status'] == '-1' and max_retry>0:
-                    time.sleep(5)
-                    self.get_read_state(max_retry-1)
-                return False
-        else:
+        if res.status_code != 200:
             return False
+        res = res.json()
+        if res['status'] == True:
+            return True
+        if res['status'] == '-1' and max_retry>0:
+            time.sleep(5)
+            self.get_read_state(max_retry-1)
+        return False
 
     def wxpuser(self,title,url):
         content = '''
@@ -332,21 +321,21 @@ class model:
         wxpuser_url = 'http://wxpusher.zjiecode.com/api/send/message'
         res = requests.post(wxpuser_url, json=data).json()
         if res['success'] == True:
-            print(f"【通知】:检测发送成功！")
+            print("【通知】:检测发送成功！")
         else:
-            print(f"【通知】:发送失败！！！！！")
+            print("【通知】:发送失败！！！！！")
 
     def user_gold(self):
         add_header = {'Accept':'application/json, text/javascript, */*; q=0.01','cookie':self.cookie,'Referer':'http://1695469567.snak.top/?cate=0'}
         ts = int(time.time()*1000)
-        url = self.url + f'v1/gold?unionid={self.unionid}&time={ts}'
+        url = f'{self.url}v1/gold?unionid={self.unionid}&time={ts}'
         res = self.request(url,add_headers=add_header)
         if res['errcode'] == 0:
             current_gold = res['data']['last_gold']
             print(f"【余额】:{current_gold}金币")
             tag = 8000
             if int(current_gold) >= tag:
-                gold = int(int(current_gold)/1000)*1000
+                gold = int(current_gold) // 1000 * 1000
                 unionid,request_id = self.exchange()
                 if unionid and request_id:
                     # print(unionid,request_id)
@@ -370,15 +359,9 @@ class model:
         match_unionid = re.search(pattern_unionid, res, re.DOTALL)
         match_request_id = re.search(pattern_request_id, res, re.DOTALL)
         # print(match_request_id,match_unionid)
-        
-        if match_unionid:
-            unionid_value = match_unionid.group(1)
-        else:
-            unionid_value = None
-        if match_request_id:
-            request_id_value = match_request_id.group(1)
-        else:
-            request_id_value = None
+
+        unionid_value = match_unionid.group(1) if match_unionid else None
+        request_id_value = match_request_id.group(1) if match_request_id else None
         if unionid_value and request_id_value:
             return unionid_value,request_id_value
         else:
@@ -394,7 +377,7 @@ class model:
         res = self.request(url1,'post',data=data1,add_headers=add_headers)
         if res['errcode'] == 0:
             print(f"【提现】:{res['data']['money']}元")
-            url2 = self.url+'v1/withdraw'
+            url2 = f'{self.url}v1/withdraw'
             data2 = f"unionid={unionid}&signid={request_id}&ua=2&ptype=0&paccount=&pname="
             {"Content-Lenght": str(len(data2)),"Content-Type":"application/x-www-form-urlencoded; charset=UTF-8","Origin":f"http://{host}","Referer":self.exchange_url}
             res = self.request(url2,'post', data=data2,add_headers=add_headers)

@@ -62,23 +62,18 @@ class Gather:
             if add_headers:
                 request_headers.update(add_headers)
             async with getattr(self.sessions, method)(url,headers = request_headers, data=data) as response:
-                    if response.status == 200:
-                        if dtype == 'json':
-                            return await response.json()     #返回text或json 看情况如json就response.json()
-                        if dtype == 'text':
-                            return await response.text()
-                    else:
-                        print(f"请求失败状态码：{response.status}")
-                        if dtype == 'json':
-                            return await response.json()     #返回text或json 看情况如json就response.json()
-                        if dtype == 'text':
-                            return await response.text()
+                if response.status != 200:
+                    print(f"请求失败状态码：{response.status}")
+                if dtype == 'json':
+                    return await response.json()     #返回text或json 看情况如json就response.json()
+                if dtype == 'text':
+                    return await response.text()
         except Exception as e:
             print(e)
             return None    
     
     async def user_info(self):
-        url = self.base_url+f'{self.key}/info'
+        url = f'{self.base_url}{self.key}/info'
         data_json = {'un':self.un,'token':self.cookie,"pageSize": 10}
         res = await self.request(url,'post',data=json.dumps(data_json))
         if res:
@@ -108,7 +103,7 @@ class Gather:
             print("【用户】:请求出现差错了,有问题")
     
     async def read(self,start_url):
-        res = await self.request(start_url+'/r.html',dtype='text')
+        res = await self.request(f'{start_url}/r.html', dtype='text')
         if res:
             print("【用户】:模拟打开页面成功")
             await self.complete(start_url)
@@ -117,7 +112,7 @@ class Gather:
 
 
     async def complete(self,host):
-        url = self.base_url+f'{self.key}/read'
+        url = f'{self.base_url}{self.key}/read'
         data_json = {
             "un": self.un,
             "token": self.cookie,
@@ -132,7 +127,7 @@ class Gather:
                         ts = random.randint(7,15)
                         print(f"【用户】:等待{ts}秒")
                         await asyncio.sleep(ts)
-                        submit_url = self.base_url+f'{self.key}/submit'
+                        submit_url = f'{self.base_url}{self.key}/submit'
                         res = await self.request(submit_url,'post', data=json.dumps(data_json),add_headers=add_headers)
                         if res:
                             if res['code'] == 0:
@@ -162,18 +157,18 @@ class Gather:
                 print(f"【用户】【检测】: {self.check_data[biz_value][0]}公众号")
                 encoded_url = quote(url)
                 await self.wxpuser("三合一检测,请1分钟内点击阅读",encoded_url)
-                print(f"【用户】【等待】:请手动前往wxpuser点击阅读")
+                print("【用户】【等待】:请手动前往wxpuser点击阅读")
                 for i in range(1,61):
                     if await self.get_read_state():
-                        print(f"【用户】【阅读】:已手动阅读,稍微延迟5秒钟")
+                        print("【用户】【阅读】:已手动阅读,稍微延迟5秒钟")
                         await asyncio.sleep(5)
                         return True
                     if i == 60:
-                        print(f"【用户】【警告】:超时未阅读，终止本次阅读")
+                        print("【用户】【警告】:超时未阅读，终止本次阅读")
                         return False
                     time.sleep(1)
             else:
-                print(f"【用户】:没有检测")
+                print("【用户】:没有检测")
                 return True
         else:
             print("__biz parameter not found in the URL")
@@ -187,9 +182,9 @@ class Gather:
             "pageSize": "20"
         }
         if self.key == 'user':
-            url = self.base_url+f'{self.key}/wd'
+            url = f'{self.base_url}{self.key}/wd'
         else:
-            url = self.base_url+f'{self.key}/wdmoney'
+            url = f'{self.base_url}{self.key}/wdmoney'
             print(url)
         res = await self.request(url,'post', data=json.dumps(data_json))
         if res:
@@ -280,39 +275,35 @@ class Gather:
         wxpuser_url = 'http://wxpusher.zjiecode.com/api/send/message'
         res = await self.request(wxpuser_url,'post',data=json_data, headers={"Content-Type":"application/json"})
         if res['success'] == True:
-            print(f"【用户】【通知】:检测发送成功！")
+            print("【用户】【通知】:检测发送成功！")
         else:
             print(f"【用户】【通知】:发送失败！！！！！{res}") 
 
 
     async def get_read_state(self,max_retry=3):
-        url = self.aol + f'/read/state?user={self.cookie}&value=2'
+        url = f'{self.aol}/read/state?user={self.cookie}&value=2'
         res = requests.get(url)
-        if res.status_code == 200:
-            res = res.json()
-            if res['status'] == True:
-                return True
-            else:
-                if res['status'] == '-1' and max_retry>0:
-                    time.sleep(5)
-                    self.get_read_state(max_retry-1)
-                return False
-        else:
+        if res.status_code != 200:
             return False
+        res = res.json()
+        if res['status'] == True:
+            return True
+        if res['status'] == '-1' and max_retry>0:
+            time.sleep(5)
+            self.get_read_state(max_retry-1)
+        return False
         
     async def check_read(self,maxretry=2):
-        url = self.aol + f'/check_dict?user={self.cookie}&value=2'
+        url = f'{self.aol}/check_dict?user={self.cookie}&value=2'
         res = requests.get(url)
         if res.status_code == 200:
             res = res.json()
             self.check_data = res['check_dict']
+        elif maxretry >0:
+            print(f"【用户】：索取字典出现错误:{res.status_code},试着重新获取！")
+            self.check_read('http://api.doudoudou.fun', maxretry-1)
         else:
-            if maxretry >0:
-                b_line = 'http://api.doudoudou.fun'
-                print(f"【用户】：索取字典出现错误:{res.status_code},试着重新获取！")
-                self.check_read(b_line,maxretry-1)
-            else:
-                exit()
+            exit()
 
     async def run(self, ck, read, wxpuser_uid, topicid, wxpuser_token, a_url):
         self.un,self.cookie = ck.split('&')
